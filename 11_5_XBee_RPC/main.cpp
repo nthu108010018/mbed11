@@ -1,6 +1,7 @@
 #include "mbed.h"
 
-using namespace std;
+#include "mbed_rpc.h"
+
 
 
 static BufferedSerial pc(STDIO_UART_TX, STDIO_UART_RX);
@@ -13,6 +14,15 @@ EventQueue queue(32 * EVENTS_EVENT_SIZE);
 Thread t;
 
 
+RpcDigitalOut myled1(LED1,"myled1");
+
+RpcDigitalOut myled2(LED2,"myled2");
+
+RpcDigitalOut myled3(LED3,"myled3");
+
+
+void xbee_rx_interrupt(void);
+
 void xbee_rx(void);
 
 void reply_messange(char *xbee_reply, char *messange);
@@ -21,6 +31,7 @@ void check_addr(char *xbee_reply, char *messenger);
 
 
 int main(){
+
 
    pc.set_baud(9600);
 
@@ -47,11 +58,9 @@ int main(){
    }
 
 
-
    xbee.write("ATMY 0x256\r\n", 12);
 
    reply_messange(xbee_reply, "setting MY : 0x256");
-
 
    xbee.write("ATDL 0x156\r\n", 12);
 
@@ -66,15 +75,6 @@ int main(){
    xbee.write("ATWR\r\n", 6);
 
    reply_messange(xbee_reply, "write config");
-
-
-   xbee_reply[0] = '\0';
-
-   xbee_reply[1] = '\0';
-
-   xbee_reply[2] = '\0';
-
-   xbee_reply[3] = '\0';
 
 
    xbee.write("ATMY\r\n", 6);
@@ -92,77 +92,78 @@ int main(){
    reply_messange(xbee_reply, "exit AT mode");
 
 
-   while(xbee.readable()){ //used to clear buffer
+   while(xbee.readable()){
 
-      char *c = new char[1];
+      char *k = new char[1];
 
-      xbee.read(c, 1);
+      xbee.read(k,1);
 
-      printf("clear \r\n");
+      printf("clear\r\n");
 
    }
 
 
-   //start send
-
+   // start
 
    printf("start\r\n");
 
    t.start(callback(&queue, &EventQueue::dispatch_forever));
 
 
+   // Setup a serial interrupt function of receiving data from xbee
+
    xbee.set_blocking(false);
 
-
-   xbee.sigio(mbed_event_queue()->event(xbee_rx));
-
+   xbee.sigio(mbed_event_queue()->event(xbee_rx_interrupt));
 
 }
 
+
+void xbee_rx_interrupt(void)
+
+{
+
+   queue.call(&xbee_rx);
+
+}
 
 
 void xbee_rx(void)
 
 {
 
-   static int i = 0;
+   char buf[100] = {0};
 
-   static char buf[100] = {0};
+   char outbuf[100] = {0};
 
    while(xbee.readable()){
 
-      char *c = new char[1];
+      for (int i=0; ; i++) {
 
-      xbee.read(c, 1);
+         char *recv = new char[1];
 
-      if(*c!='\r' && *c!='\n'){
+         xbee.read(recv, 1);
 
-         buf[i] = *c;
+         buf[i] = *recv;
 
-         i++;
+         if (*recv == '\r') {
 
-         buf[i] = '\0';
+         break;
 
-      }else if((*c == '\r' || *c == '\n') && i == 0){ // ignore redundant char in buffer
-
-
-      }
-
-      else
-
-      {
-
-         i = 0;
-
-         printf("Get: %s\r\n", buf);
-
-         xbee.write(buf, sizeof(buf));
+         }
 
       }
+
+
+      RPC::call(buf, outbuf);
+
+
+      printf("%s\r\n", outbuf);
+
+      ThisThread::sleep_for(1s);
 
    }
 
-   ThisThread::sleep_for(100ms);
 
 }
 

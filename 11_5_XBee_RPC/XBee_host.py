@@ -1,5 +1,7 @@
 import serial
 
+import time
+
 
 # XBee setting
 
@@ -56,6 +58,7 @@ print(char.decode())
 s.write("ATMY\r\n".encode())
 
 char = s.read(4)
+
 print("MY :")
 
 print(char.decode())
@@ -79,13 +82,40 @@ print("Exit AT mode.")
 print(char.decode())
 
 
-# send to remote
+print("start sending RPC")
 
-s.write("abcd\r\n".encode())
+while True:
 
-line = s.read(5)
+    # send RPC to remote
 
-print('Get:', line.decode())
+    s.write("/myled1/write 1\r".encode())
+
+    time.sleep(1)
+
+
+    s.write("/myled2/write 1\r".encode())
+
+    time.sleep(1)
+
+
+    s.write("/myled3/write 1\r".encode())
+
+    time.sleep(1)
+
+
+    s.write("/myled3/write 0\r".encode())
+
+    time.sleep(1)
+
+
+    s.write("/myled2/write 0\r".encode())
+
+    time.sleep(1)
+
+
+    s.write("/myled1/write 0\r".encode())
+
+    time.sleep(1)
 
 
 s.close()
